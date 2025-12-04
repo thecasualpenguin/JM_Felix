@@ -52,7 +52,7 @@
       </BuildableProductRunnable>
       <CommandLineArguments>
          <CommandLineArgument
-            argument = "-d /Users/havenville/mystuff/PhD/2025_09_26_Compressive_Generation/JM/bin/decoder.cfg"
+            argument = "-d /Users/havenville/mystuff/PhD/2025_09_26_Compressive_Generation/JM_modified/bin/decoder.cfg"
             isEnabled = "YES">
          </CommandLineArgument>
       </CommandLineArguments>
