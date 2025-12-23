@@ -59,7 +59,8 @@ obj/decoder_test.o: src/decoder_test.c inc/contributors.h \
   ../lcommon/inc/parsetcommon.h ../lcommon/inc/types.h \
   ../lcommon/inc/io_image.h ../lcommon/inc/frame.h \
   ../lcommon/inc/distortion.h ../lcommon/inc/io_video.h inc/configfile.h \
-  ../lcommon/inc/config_common.h
+  ../lcommon/inc/config_common.h inc/felix.h inc/mbuffer.h \
+  inc/felix_extraction.h
 obj/erc_api.o: src/erc_api.c inc/global.h ../lcommon/inc/win32.h \
   inc/defines.h ../lcommon/inc/typedefs.h ../lcommon/inc/ifunctions.h \
   ../lcommon/inc/parsetcommon.h ../lcommon/inc/types.h \
@@ -89,6 +90,18 @@ obj/errorconcealment.o: src/errorconcealment.c inc/contributors.h \
   ../lcommon/inc/parsetcommon.h ../lcommon/inc/types.h \
   ../lcommon/inc/io_image.h ../lcommon/inc/frame.h \
   ../lcommon/inc/distortion.h ../lcommon/inc/io_video.h inc/elements.h
+obj/felix.o: src/felix.c inc/felix.h inc/global.h ../lcommon/inc/win32.h \
+  inc/defines.h ../lcommon/inc/typedefs.h ../lcommon/inc/ifunctions.h \
+  ../lcommon/inc/parsetcommon.h ../lcommon/inc/types.h \
+  ../lcommon/inc/io_image.h ../lcommon/inc/frame.h \
+  ../lcommon/inc/distortion.h ../lcommon/inc/io_video.h inc/mbuffer.h
+obj/felix_extraction.o: src/felix_extraction.c inc/felix_extraction.h \
+  inc/global.h ../lcommon/inc/win32.h inc/defines.h \
+  ../lcommon/inc/typedefs.h ../lcommon/inc/ifunctions.h \
+  ../lcommon/inc/parsetcommon.h ../lcommon/inc/types.h \
+  ../lcommon/inc/io_image.h ../lcommon/inc/frame.h \
+  ../lcommon/inc/distortion.h ../lcommon/inc/io_video.h inc/mbuffer.h \
+  inc/felix.h
 obj/filehandle.o: src/filehandle.c inc/contributors.h inc/global.h \
   ../lcommon/inc/win32.h inc/defines.h ../lcommon/inc/typedefs.h \
   ../lcommon/inc/ifunctions.h ../lcommon/inc/parsetcommon.h \
@@ -121,7 +134,8 @@ obj/image.o: src/image.c inc/contributors.h inc/global.h \
   inc/transform8x8.h inc/loopfilter.h inc/biaridecod.h inc/context_ini.h \
   inc/cabac.h inc/vlc.h inc/quant.h inc/errorconcealment.h inc/erc_api.h \
   inc/erc_globals.h ../lcommon/inc/mbuffer_common.h inc/mbuffer_mvc.h \
-  ../lcommon/inc/fast_memory.h inc/mc_prediction.h
+  ../lcommon/inc/fast_memory.h inc/felix.h inc/felix_extraction.h \
+  inc/mc_prediction.h
 obj/intra16x16_pred.o: src/intra16x16_pred.c inc/global.h \
   ../lcommon/inc/win32.h inc/defines.h ../lcommon/inc/typedefs.h \
   ../lcommon/inc/ifunctions.h ../lcommon/inc/parsetcommon.h \
