@@ -33,12 +33,15 @@ Mapping Map[] = {
     {"OutputFile",               &cfgparams.outfile,                      1,   0.0,                       0,  0.0,              0.0,             FILE_NAME_SIZE, },
     {"RefFile",                  &cfgparams.reffile,                      1,   0.0,                       0,  0.0,              0.0,             FILE_NAME_SIZE, },
   
-  // === Felix MV options ===
-  // 0 = INJECT_MODE, 1 = EXTRACT_MODE
-  {"FelixCustomMode",          &felix_custom_mode,                      0,   0,           1,  0,                1,                               },
+  // === Felix options ===
+  // 0 = EXTRACT_MODE (MV only), 1 = INJECT_MODE (MV only)
+  // 2 = EXTRACT_FULL_MODE (full MB data), 3 = INJECT_FULL_MODE (full MB data)
+  {"FelixCustomMode",          &felix_custom_mode,                      0,   0,           1,  0,                3,                               },
   {"FelixMVInputFile",         &felix_mv_in_path,                       1,   0.0,         0,  0.0,              0.0,             FILE_NAME_SIZE, },
   {"FelixMVOutputFile",        &felix_mv_out_path,                      1,   0.0,         0,  0.0,              0.0,             FILE_NAME_SIZE, },
   {"FelixMVLogFile",           &felix_mv_log_path,                      1,   0.0,         0,  0.0,              0.0,             FILE_NAME_SIZE, },
+  {"FelixMBDataInputFile",     &felix_mbdata_in_path,                   1,   0.0,         0,  0.0,              0.0,             FILE_NAME_SIZE, },
+  {"FelixMBDataOutputFile",    &felix_mbdata_out_path,                  1,   0.0,         0,  0.0,              0.0,             FILE_NAME_SIZE, },
   
     {"WriteUV",                  &cfgparams.write_uv,                     0,   1.0,                       1,  0.0,              1.0,                             },
     {"FileFormat",               &cfgparams.FileFormat,                   0,   0.0,                       1,  0.0,              1.0,                             },

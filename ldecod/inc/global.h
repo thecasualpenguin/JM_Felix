@@ -56,19 +56,25 @@ struct pic_motion_params;
  ***********************************************************************
  */
 
-#define EXTRACT_MODE 0
-#define INJECT_MODE  1
+#define EXTRACT_MODE      0
+#define INJECT_MODE       1
+#define EXTRACT_FULL_MODE 2   // Full MB data extraction (MVs, modes, coefficients)
+#define INJECT_FULL_MODE  3   // Full MB data injection
 
 //  ------ Felix Custom Input Parameters ------
 int  felix_custom_mode;
 
-// a serialized MV file for injection
+// a serialized MV file for injection (legacy MV-only mode)
 char felix_mv_in_path[FILE_NAME_SIZE];
 
-// path to save extracted mvs
+// path to save extracted mvs (legacy MV-only mode)
 char felix_mv_out_path[FILE_NAME_SIZE];
 
 char felix_mv_log_path[FILE_NAME_SIZE];
+
+// Full MB data file paths (new modes)
+char felix_mbdata_in_path[FILE_NAME_SIZE];   // Input for INJECT_FULL_MODE
+char felix_mbdata_out_path[FILE_NAME_SIZE];  // Output for EXTRACT_FULL_MODE
 
 // ---------------------------------------------
 

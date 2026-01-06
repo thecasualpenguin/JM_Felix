@@ -1,0 +1,9 @@
+.DS_Store
+test_roundtrip/
+
+*.log
+*.bin
+*.yuv
+*.264
+
+CLAUDE.md

@@ -21,6 +21,7 @@
 #include "configfile.h"
 #include "felix.h"
 #include "felix_extraction.h"
+#include "felix_mbdata.h"
 
 #define DECOUTPUT_TEST      0
 
@@ -235,12 +236,21 @@ int main(int argc, char **argv)
   Configure(&InputParams, argc, argv);
   
   
-  // Felix custom mode extractions
-  if (felix_custom_mode == EXTRACT_MODE) {
-  }
-  if (felix_custom_mode == INJECT_MODE) {
-    load_mv_file();
-    open_mv_log();
+  // Felix custom mode initialization
+  switch (felix_custom_mode) {
+    case EXTRACT_MODE:
+      // Initialization happens lazily on first MB
+      break;
+    case INJECT_MODE:
+      load_mv_file();
+      open_mv_log();
+      break;
+    case EXTRACT_FULL_MODE:
+      // Initialization happens lazily on first MB in extract_mbdata()
+      break;
+    case INJECT_FULL_MODE:
+      load_mbdata_file();
+      break;
   }
   
   
@@ -285,13 +295,22 @@ int main(int argc, char **argv)
 
   printf("%d frames are decoded.\n", iFramesDecoded);
   
-  // finishing up, writing to files
-  if (felix_custom_mode == EXTRACT_MODE) {
-    write_mv_file();
-    free_mv_field();
-  }
-  if (felix_custom_mode == INJECT_MODE) {
-    close_mv_log();
+  // Felix custom mode finalization
+  switch (felix_custom_mode) {
+    case EXTRACT_MODE:
+      write_mv_file();
+      free_mv_field();
+      break;
+    case INJECT_MODE:
+      close_mv_log();
+      break;
+    case EXTRACT_FULL_MODE:
+      write_mbdata_file();
+      free_mbdata_extraction();
+      break;
+    case INJECT_FULL_MODE:
+      free_mbdata_injection();
+      break;
   }
   
   return 0;

@@ -61,6 +61,7 @@
 
 #include "felix.h"
 #include "felix_extraction.h"
+#include "felix_mbdata.h"
 
 #include "mc_prediction.h"
 
@@ -2515,18 +2516,24 @@ void decode_one_slice(Slice *currSlice)
     currSlice->read_one_macroblock(currMB);
     
     /* Felix Injections:
-       extract original MVs
-       and
-       insert custom MVs before motion compensation
+       extract/inject data before motion compensation
      */
-    if (felix_custom_mode == EXTRACT_MODE) {
-      extract_mvs(currMB);
+    switch (felix_custom_mode) {
+      case EXTRACT_MODE:
+        extract_mvs(currMB);  // Legacy MV-only extraction
+        break;
+      case INJECT_MODE:
+        print_mvs(currMB);
+        apply_custom_mvs_to_mb(currMB);  // Legacy MV-only injection
+        break;
+      case EXTRACT_FULL_MODE:
+        extract_mbdata(currMB);  // Full MB data extraction
+        break;
+      case INJECT_FULL_MODE:
+        inject_mbdata(currMB);  // Full MB data injection
+        break;
     }
-    if (felix_custom_mode == INJECT_MODE) {
-      print_mvs(currMB);
-      apply_custom_mvs_to_mb(currMB);
-    }
-    
+
     decode_one_macroblock(currMB, currSlice->dec_picture);
 
     if(currSlice->mb_aff_frame_flag && currMB->mb_field)
