@@ -202,6 +202,8 @@
 		71927E3A1472DFE1000AB618 /* transform.c in Sources */ = {isa = PBXBuildFile; fileRef = 71927E1E1472DFE1000AB618 /* transform.c */; };
 		71927E3B1472DFE1000AB618 /* win32.c in Sources */ = {isa = PBXBuildFile; fileRef = 71927E1F1472DFE1000AB618 /* win32.c */; };
 		7A3882822ED42F3200361AF8 /* felix_extraction.c in Sources */ = {isa = PBXBuildFile; fileRef = 7A3882812ED42F3200361AF8 /* felix_extraction.c */; };
+		7A82B9872F14E69A00F856ED /* felix_mbdata_injection.c in Sources */ = {isa = PBXBuildFile; fileRef = 7A82B9852F14E69A00F856ED /* felix_mbdata_injection.c */; };
+		7A82B9882F14E69A00F856ED /* felix_mbdata_extraction.c in Sources */ = {isa = PBXBuildFile; fileRef = 7A82B9862F14E69A00F856ED /* felix_mbdata_extraction.c */; };
 		7ACE01042ECB6B7500566A82 /* felix.c in Sources */ = {isa = PBXBuildFile; fileRef = 7ACE01032ECB6B7500566A82 /* felix.c */; };
 		C548919A183D2914001D41AE /* md_high_updated.c in Sources */ = {isa = PBXBuildFile; fileRef = C5489199183D2914001D41AE /* md_high_updated.c */; };
 		C5CD63BF185285B3005ED0FB /* me_hme.c in Sources */ = {isa = PBXBuildFile; fileRef = C5CD63BD185285B3005ED0FB /* me_hme.c */; };
@@ -616,6 +618,9 @@
 		71927E1F1472DFE1000AB618 /* win32.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = win32.c; sourceTree = "<group>"; };
 		7A3882802ED42F3200361AF8 /* felix_extraction.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = felix_extraction.h; sourceTree = "<group>"; };
 		7A3882812ED42F3200361AF8 /* felix_extraction.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = felix_extraction.c; sourceTree = "<group>"; };
+		7A82B9852F14E69A00F856ED /* felix_mbdata_injection.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = felix_mbdata_injection.c; sourceTree = "<group>"; };
+		7A82B9862F14E69A00F856ED /* felix_mbdata_extraction.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = felix_mbdata_extraction.c; sourceTree = "<group>"; };
+		7A82B9892F14E75F00F856ED /* felix_mbdata.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = felix_mbdata.h; path = ldecod/inc/felix_mbdata.h; sourceTree = SOURCE_ROOT; };
 		7ACE01012ECB6AF800566A82 /* felix.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = felix.h; sourceTree = "<group>"; };
 		7ACE01032ECB6B7500566A82 /* felix.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = felix.c; sourceTree = "<group>"; };
 		8DD76FB20486AB0100D96B5E /* lencod */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = lencod; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -1045,6 +1050,7 @@
 			children = (
 				7ACE01012ECB6AF800566A82 /* felix.h */,
 				7A3882802ED42F3200361AF8 /* felix_extraction.h */,
+				7A82B9892F14E75F00F856ED /* felix_mbdata.h */,
 				71927DCD1472DFB3000AB618 /* annexb.h */,
 				71927DCE1472DFB3000AB618 /* biaridecod.h */,
 				71927DCF1472DFB3000AB618 /* block.h */,
@@ -1094,6 +1100,8 @@
 			children = (
 				7ACE01032ECB6B7500566A82 /* felix.c */,
 				7A3882812ED42F3200361AF8 /* felix_extraction.c */,
+				7A82B9862F14E69A00F856ED /* felix_mbdata_extraction.c */,
+				7A82B9852F14E69A00F856ED /* felix_mbdata_injection.c */,
 				71927D651472DF98000AB618 /* annexb.c */,
 				71927D661472DF98000AB618 /* biaridecod.c */,
 				71927D671472DF98000AB618 /* block.c */,
@@ -1309,6 +1317,7 @@
 				71927DB51472DF98000AB618 /* ldecod.c in Sources */,
 				71927DB61472DF98000AB618 /* leaky_bucket.c in Sources */,
 				71927DB71472DF98000AB618 /* loop_filter_mbaff.c in Sources */,
+				7A82B9872F14E69A00F856ED /* felix_mbdata_injection.c in Sources */,
 				71927DB81472DF98000AB618 /* loop_filter_normal.c in Sources */,
 				71927DB91472DF98000AB618 /* loopFilter.c in Sources */,
 				71927DBA1472DF98000AB618 /* macroblock.c in Sources */,
@@ -1316,6 +1325,7 @@
 				71927DBB1472DF98000AB618 /* mb_access.c in Sources */,
 				71927DBC1472DF98000AB618 /* mb_prediction.c in Sources */,
 				71927DBD1472DF98000AB618 /* mb_read.c in Sources */,
+				7A82B9882F14E69A00F856ED /* felix_mbdata_extraction.c in Sources */,
 				71927DBE1472DF98000AB618 /* mbuffer_mvc.c in Sources */,
 				71927DBF1472DF98000AB618 /* mbuffer.c in Sources */,
 				71927DC01472DF98000AB618 /* mc_direct.c in Sources */,
