@@ -880,6 +880,204 @@ def add_residual_noise(stddev: float = 10.0) -> Callable[[MBDataTensors], MBData
     return processor
 
 
+# ==================== Combined & Metadata Processors ====================
+
+def zero_all(tensors: MBDataTensors) -> MBDataTensors:
+    """Zero motion vectors and all residual coefficients.
+
+    Sanity check: zeros MVs and residuals while keeping all metadata intact.
+    Inter blocks will copy from reference at same position (zero motion).
+    Intra blocks will use prediction only with no residual correction.
+
+    Should produce a very corrupted/blocky video with no detail.
+    """
+    import torch
+
+    return MBDataTensors(
+        header=tensors.header,
+        mb_type=tensors.mb_type,
+        cbp=tensors.cbp,  # Keep original CBP
+        qp=tensors.qp,
+        is_intra=tensors.is_intra,
+        b8mode=tensors.b8mode,  # Keep original partition modes
+        b8pdir=tensors.b8pdir,  # Keep original prediction directions
+        i16mode=tensors.i16mode,  # Keep original I16 mode
+        c_ipred_mode=tensors.c_ipred_mode,  # Keep original chroma mode
+        transform_8x8=tensors.transform_8x8,
+        mv_list0=torch.zeros_like(tensors.mv_list0),  # Zero motion vectors
+        mv_list1=torch.zeros_like(tensors.mv_list1),
+        ref_idx_list0=tensors.ref_idx_list0,  # Keep original ref indices
+        ref_idx_list1=tensors.ref_idx_list1,
+        ipredmode=tensors.ipredmode,  # Keep original intra modes
+        luma_cof=torch.zeros_like(tensors.luma_cof),  # Zero luma residuals
+        chroma_cof=torch.zeros_like(tensors.chroma_cof),  # Zero chroma residuals
+    )
+
+
+def invert_motion_vectors(tensors: MBDataTensors) -> MBDataTensors:
+    """Negate all motion vectors (multiply by -1).
+
+    Creates a "reverse motion" effect - objects move opposite to their
+    intended direction, causing ghosting and trailing artifacts.
+    """
+    import torch
+
+    return MBDataTensors(
+        header=tensors.header,
+        mb_type=tensors.mb_type,
+        cbp=tensors.cbp,
+        qp=tensors.qp,
+        is_intra=tensors.is_intra,
+        b8mode=tensors.b8mode,
+        b8pdir=tensors.b8pdir,
+        i16mode=tensors.i16mode,
+        c_ipred_mode=tensors.c_ipred_mode,
+        transform_8x8=tensors.transform_8x8,
+        mv_list0=-tensors.mv_list0,
+        mv_list1=-tensors.mv_list1,
+        ref_idx_list0=tensors.ref_idx_list0,
+        ref_idx_list1=tensors.ref_idx_list1,
+        ipredmode=tensors.ipredmode,
+        luma_cof=tensors.luma_cof,
+        chroma_cof=tensors.chroma_cof,
+    )
+
+
+def randomize_intra_modes(tensors: MBDataTensors) -> MBDataTensors:
+    """Randomize intra prediction modes (0-8 for 4x4 luma).
+
+    Creates blocky, glitchy artifacts on intra-coded blocks as
+    the wrong prediction directions are used.
+    """
+    import torch
+
+    # Intra 4x4 modes are 0-8 (9 modes: DC + 8 directional)
+    random_modes = torch.randint(0, 9, tensors.ipredmode.shape, dtype=tensors.ipredmode.dtype)
+
+    return MBDataTensors(
+        header=tensors.header,
+        mb_type=tensors.mb_type,
+        cbp=tensors.cbp,
+        qp=tensors.qp,
+        is_intra=tensors.is_intra,
+        b8mode=tensors.b8mode,
+        b8pdir=tensors.b8pdir,
+        i16mode=tensors.i16mode,
+        c_ipred_mode=tensors.c_ipred_mode,
+        transform_8x8=tensors.transform_8x8,
+        mv_list0=tensors.mv_list0,
+        mv_list1=tensors.mv_list1,
+        ref_idx_list0=tensors.ref_idx_list0,
+        ref_idx_list1=tensors.ref_idx_list1,
+        ipredmode=random_modes,
+        luma_cof=tensors.luma_cof,
+        chroma_cof=tensors.chroma_cof,
+    )
+
+
+def shift_qp(delta: int = 10) -> Callable[[MBDataTensors], MBDataTensors]:
+    """Create a processor that shifts QP values.
+
+    Args:
+        delta: Amount to add to QP. Positive = coarser quantization (blockier),
+               Negative = finer quantization. Valid QP range is 0-51.
+    """
+    def processor(tensors: MBDataTensors) -> MBDataTensors:
+        import torch
+
+        # Shift and clamp to valid range
+        shifted_qp = torch.clamp(tensors.qp.int() + delta, 0, 51).to(tensors.qp.dtype)
+
+        return MBDataTensors(
+            header=tensors.header,
+            mb_type=tensors.mb_type,
+            cbp=tensors.cbp,
+            qp=shifted_qp,
+            is_intra=tensors.is_intra,
+            b8mode=tensors.b8mode,
+            b8pdir=tensors.b8pdir,
+            i16mode=tensors.i16mode,
+            c_ipred_mode=tensors.c_ipred_mode,
+            transform_8x8=tensors.transform_8x8,
+            mv_list0=tensors.mv_list0,
+            mv_list1=tensors.mv_list1,
+            ref_idx_list0=tensors.ref_idx_list0,
+            ref_idx_list1=tensors.ref_idx_list1,
+            ipredmode=tensors.ipredmode,
+            luma_cof=tensors.luma_cof,
+            chroma_cof=tensors.chroma_cof,
+        )
+    return processor
+
+
+def swap_chroma_channels(tensors: MBDataTensors) -> MBDataTensors:
+    """Swap U and V chroma channels.
+
+    Creates color shift effects - reds become blues, etc.
+    """
+    import torch
+
+    # chroma_cof shape is [frames, mbs, 2, 64] where dim 2 is [Cb, Cr]
+    swapped_chroma = tensors.chroma_cof.clone()
+    swapped_chroma[:, :, 0, :] = tensors.chroma_cof[:, :, 1, :]
+    swapped_chroma[:, :, 1, :] = tensors.chroma_cof[:, :, 0, :]
+
+    return MBDataTensors(
+        header=tensors.header,
+        mb_type=tensors.mb_type,
+        cbp=tensors.cbp,
+        qp=tensors.qp,
+        is_intra=tensors.is_intra,
+        b8mode=tensors.b8mode,
+        b8pdir=tensors.b8pdir,
+        i16mode=tensors.i16mode,
+        c_ipred_mode=tensors.c_ipred_mode,
+        transform_8x8=tensors.transform_8x8,
+        mv_list0=tensors.mv_list0,
+        mv_list1=tensors.mv_list1,
+        ref_idx_list0=tensors.ref_idx_list0,
+        ref_idx_list1=tensors.ref_idx_list1,
+        ipredmode=tensors.ipredmode,
+        luma_cof=tensors.luma_cof,
+        chroma_cof=swapped_chroma,
+    )
+
+
+def amplify_motion(factor: float = 2.0) -> Callable[[MBDataTensors], MBDataTensors]:
+    """Create a processor that amplifies motion vectors.
+
+    Args:
+        factor: Multiplication factor. >1 = exaggerated motion/blur,
+                <1 = reduced motion, 0 = freeze frame effect
+    """
+    def processor(tensors: MBDataTensors) -> MBDataTensors:
+        import torch
+
+        amp_mv0 = (tensors.mv_list0.float() * factor).to(tensors.mv_list0.dtype)
+        amp_mv1 = (tensors.mv_list1.float() * factor).to(tensors.mv_list1.dtype)
+
+        return MBDataTensors(
+            header=tensors.header,
+            mb_type=tensors.mb_type,
+            cbp=tensors.cbp,
+            qp=tensors.qp,
+            is_intra=tensors.is_intra,
+            b8mode=tensors.b8mode,
+            b8pdir=tensors.b8pdir,
+            i16mode=tensors.i16mode,
+            c_ipred_mode=tensors.c_ipred_mode,
+            transform_8x8=tensors.transform_8x8,
+            mv_list0=amp_mv0,
+            mv_list1=amp_mv1,
+            ref_idx_list0=tensors.ref_idx_list0,
+            ref_idx_list1=tensors.ref_idx_list1,
+            ipredmode=tensors.ipredmode,
+            luma_cof=tensors.luma_cof,
+            chroma_cof=tensors.chroma_cof,
+        )
+    return processor
+
+
 # ==================== CLI Interface ====================
 
 def main():
@@ -912,13 +1110,16 @@ def main():
     process_parser.add_argument('input', help='Input H.264 bitstream')
     process_parser.add_argument('output', help='Output MP4 file')
     process_parser.add_argument('--processor', choices=[
-        'identity', 'zero_mvs', 'scale_mvs',
+        'identity', 'zero_mvs', 'scale_mvs', 'invert_mvs', 'amplify_mvs',
         'zero_residuals', 'zero_luma', 'zero_chroma',
-        'scale_residuals', 'quantize_residuals', 'noise_residuals'
+        'scale_residuals', 'quantize_residuals', 'noise_residuals',
+        'zero_all', 'randomize_intra', 'shift_qp', 'swap_chroma'
     ], default='identity', help='Processing to apply')
-    process_parser.add_argument('--scale', type=float, default=0.5, help='Scale factor for scale_mvs or scale_residuals')
+    process_parser.add_argument('--scale', type=float, default=0.5, help='Scale factor for scale_mvs/scale_residuals')
+    process_parser.add_argument('--amplify', type=float, default=2.0, help='Amplification factor for amplify_mvs')
     process_parser.add_argument('--levels', type=int, default=8, help='Quantization levels for quantize_residuals')
     process_parser.add_argument('--noise-stddev', type=float, default=10.0, help='Noise stddev for noise_residuals')
+    process_parser.add_argument('--qp-delta', type=int, default=10, help='QP shift amount for shift_qp')
     process_parser.add_argument('--crf', type=int, default=18, help='x264 CRF value')
     process_parser.add_argument('--keep', action='store_true', help='Keep intermediate files')
     process_parser.add_argument('--intermediate-dir', help='Directory for intermediate files')
@@ -972,6 +1173,10 @@ def main():
             processor = zero_all_motion_vectors
         elif args.processor == 'scale_mvs':
             processor = scale_motion_vectors(args.scale)
+        elif args.processor == 'invert_mvs':
+            processor = invert_motion_vectors
+        elif args.processor == 'amplify_mvs':
+            processor = amplify_motion(args.amplify)
         elif args.processor == 'zero_residuals':
             processor = zero_residuals
         elif args.processor == 'zero_luma':
@@ -984,6 +1189,14 @@ def main():
             processor = quantize_residuals(args.levels)
         elif args.processor == 'noise_residuals':
             processor = add_residual_noise(args.noise_stddev)
+        elif args.processor == 'zero_all':
+            processor = zero_all
+        elif args.processor == 'randomize_intra':
+            processor = randomize_intra_modes
+        elif args.processor == 'shift_qp':
+            processor = shift_qp(args.qp_delta)
+        elif args.processor == 'swap_chroma':
+            processor = swap_chroma_channels
 
         pipeline.process_video(
             input_h264=args.input,

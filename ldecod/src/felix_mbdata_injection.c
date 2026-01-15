@@ -7,10 +7,10 @@
 
 #include "felix_mbdata.h"
 
-// Running counter for decoded frames (to handle IDR resets)
-static int injection_decoded_frames = 0;
-static int injection_frames_before_last_IDR = 0;
-static Boolean injection_entered_IDR_toggle = FALSE;
+// Simple decode-order frame counter (matches extraction)
+static int injection_frame_counter = 0;  // Monotonically increasing frame index
+static int injection_last_poc = -99999;  // Last seen POC to detect frame changes
+static int injection_last_logged_frame = -1;  // For debug logging
 
 // Load MB data file into memory
 void load_mbdata_file(void)
@@ -62,10 +62,10 @@ void load_mbdata_file(void)
     mbdata_i_ctx->frames_before_last_IDR = 0;
     mbdata_i_ctx->entered_IDR_toggle = FALSE;
 
-    // Reset static counters for IDR handling
-    injection_decoded_frames = 0;
-    injection_frames_before_last_IDR = 0;
-    injection_entered_IDR_toggle = FALSE;
+    // Reset static counters for frame tracking
+    injection_frame_counter = 0;
+    injection_last_poc = -99999;
+    injection_last_logged_frame = -1;
 
     // Allocate and read MB data
     size_t total_mbs = (size_t)header.num_frames * header.frame_height_mbs * header.frame_width_mbs;
@@ -205,22 +205,23 @@ void inject_mbdata(Macroblock *currMB)
     Slice *currSlice = currMB->p_Slice;
     StorablePicture *dec_pic = currSlice->dec_picture;
     int is_idr = dec_pic->idr_flag;
+    int current_poc = dec_pic->frame_poc;
 
-    // Track IDR resets (same logic as mode 1)
-    if (is_idr && !injection_entered_IDR_toggle) {
-        injection_entered_IDR_toggle = TRUE;
-        injection_frames_before_last_IDR = injection_decoded_frames;
+    // Detect new frame: POC changed from last macroblock
+    if (current_poc != injection_last_poc) {
+        // New frame - increment if this is not the very first MB
+        if (injection_last_poc != -99999) {
+            injection_frame_counter++;
+        }
+        injection_last_poc = current_poc;
     }
-    if (!is_idr) {
-        injection_entered_IDR_toggle = FALSE;
-    }
 
-    // Calculate frame index with IDR offset
-    int f = dec_pic->frame_poc / 2 + injection_frames_before_last_IDR;
+    int f = injection_frame_counter;
 
-    // Track highest frame seen (running counter)
-    if (f + 1 > injection_decoded_frames) {
-        injection_decoded_frames = f + 1;
+    // Debug: log once per frame
+    if (f != injection_last_logged_frame) {
+        printf("Inject frame %d: POC=%d, idr=%d\n", f, current_poc, is_idr);
+        injection_last_logged_frame = f;
     }
 
     // Get MB coordinates
@@ -241,8 +242,10 @@ void inject_mbdata(Macroblock *currMB)
         return;
     }
 
-    // Inject all MB data: metadata, motion, intra modes, and coefficients
-    inject_mb_metadata(currMB, mb_data);
+    // Inject motion, intra modes, and coefficients
+    // NOTE: We do NOT inject metadata (mb_type, b8mode, b8pdir, etc.) because
+    // the decoder has already used these to build reference picture lists.
+    // Changing them after parsing causes "invalid reference picture" errors.
     inject_block_motion(currMB, mb_data);
     inject_intra_modes(currMB, mb_data);
     inject_coefficients(currMB, mb_data);

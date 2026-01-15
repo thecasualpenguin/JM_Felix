@@ -172,6 +172,11 @@ static void extract_coefficients(Macroblock *currMB, MacroblockData *mb_data)
     }
 }
 
+// Simple decode-order frame counter
+static int extraction_frame_counter = 0;  // Monotonically increasing frame index
+static int extraction_last_poc = -99999;  // Last seen POC to detect frame changes
+static int extraction_last_logged_frame = -1;  // For debug logging
+
 // Main extraction function - called after read_one_macroblock()
 void extract_mbdata(Macroblock *currMB)
 {
@@ -181,20 +186,31 @@ void extract_mbdata(Macroblock *currMB)
     int is_idr = dec_pic->idr_flag;
 
     // Initialize on first call
-    if (!mbdata_e_ctx)
+    if (!mbdata_e_ctx) {
         init_mbdata_extraction(p_Vid);
-
-    // Track IDR frame-no resets
-    if (is_idr && !mbdata_e_ctx->entered_IDR_toggle) {
-        mbdata_e_ctx->entered_IDR_toggle = TRUE;
-        mbdata_e_ctx->frames_before_last_IDR = mbdata_e_ctx->num_frames;
-        ++mbdata_e_ctx->IDR_cnt;
+        extraction_frame_counter = 0;
+        extraction_last_poc = -99999;
+        extraction_last_logged_frame = -1;
     }
-    if (!is_idr)
-        mbdata_e_ctx->entered_IDR_toggle = FALSE;
 
-    // Current frame index (0-based)
-    int f = dec_pic->frame_poc / 2 + mbdata_e_ctx->frames_before_last_IDR;
+    int current_poc = dec_pic->frame_poc;
+
+    // Detect new frame: POC changed from last macroblock
+    if (current_poc != extraction_last_poc) {
+        // New frame - increment if this is not the very first MB
+        if (extraction_last_poc != -99999) {
+            extraction_frame_counter++;
+        }
+        extraction_last_poc = current_poc;
+    }
+
+    int f = extraction_frame_counter;
+
+    // Debug: log once per frame
+    if (f != extraction_last_logged_frame) {
+        printf("Extract frame %d: POC=%d, idr=%d\n", f, current_poc, is_idr);
+        extraction_last_logged_frame = f;
+    }
 
     // Ensure capacity
     ensure_mbdata_frame_capacity(f);
