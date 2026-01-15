@@ -7,6 +7,11 @@
 
 #include "felix_mbdata.h"
 
+// Running counter for decoded frames (to handle IDR resets)
+static int injection_decoded_frames = 0;
+static int injection_frames_before_last_IDR = 0;
+static Boolean injection_entered_IDR_toggle = FALSE;
+
 // Load MB data file into memory
 void load_mbdata_file(void)
 {
@@ -56,6 +61,11 @@ void load_mbdata_file(void)
     mbdata_i_ctx->IDR_cnt = 0;
     mbdata_i_ctx->frames_before_last_IDR = 0;
     mbdata_i_ctx->entered_IDR_toggle = FALSE;
+
+    // Reset static counters for IDR handling
+    injection_decoded_frames = 0;
+    injection_frames_before_last_IDR = 0;
+    injection_entered_IDR_toggle = FALSE;
 
     // Allocate and read MB data
     size_t total_mbs = (size_t)header.num_frames * header.frame_height_mbs * header.frame_width_mbs;
@@ -196,17 +206,22 @@ void inject_mbdata(Macroblock *currMB)
     StorablePicture *dec_pic = currSlice->dec_picture;
     int is_idr = dec_pic->idr_flag;
 
-    // Track IDR frame-no resets (same logic as extraction)
-    if (is_idr && !mbdata_i_ctx->entered_IDR_toggle) {
-        mbdata_i_ctx->entered_IDR_toggle = TRUE;
-        mbdata_i_ctx->frames_before_last_IDR = mbdata_i_ctx->num_frames;
-        ++mbdata_i_ctx->IDR_cnt;
+    // Track IDR resets (same logic as mode 1)
+    if (is_idr && !injection_entered_IDR_toggle) {
+        injection_entered_IDR_toggle = TRUE;
+        injection_frames_before_last_IDR = injection_decoded_frames;
     }
-    if (!is_idr)
-        mbdata_i_ctx->entered_IDR_toggle = FALSE;
+    if (!is_idr) {
+        injection_entered_IDR_toggle = FALSE;
+    }
 
-    // Current frame index (0-based)
-    int f = dec_pic->frame_poc / 2 + mbdata_i_ctx->frames_before_last_IDR;
+    // Calculate frame index with IDR offset
+    int f = dec_pic->frame_poc / 2 + injection_frames_before_last_IDR;
+
+    // Track highest frame seen (running counter)
+    if (f + 1 > injection_decoded_frames) {
+        injection_decoded_frames = f + 1;
+    }
 
     // Get MB coordinates
     int mb_x = currMB->mb.x;
@@ -226,11 +241,39 @@ void inject_mbdata(Macroblock *currMB)
         return;
     }
 
-    // Inject all MB data
+    // Inject all MB data: metadata, motion, intra modes, and coefficients
     inject_mb_metadata(currMB, mb_data);
     inject_block_motion(currMB, mb_data);
     inject_intra_modes(currMB, mb_data);
     inject_coefficients(currMB, mb_data);
+
+    // Update ref_pic pointers to match injected ref_idx values
+    // (read_motion_info_from_NAL sets ref_pic based on original ref_idx,
+    //  so we must update them after injection changes ref_idx)
+    int list_offset = currMB->list_offset;
+    StorablePicture **list0 = currSlice->listX[LIST_0 + list_offset];
+    StorablePicture **list1 = currSlice->listX[LIST_1 + list_offset];
+    PicMotionParams **mv_info = dec_pic->mv_info;
+
+    for (int by = 0; by < 4; by++) {
+        for (int bx = 0; bx < 4; bx++) {
+            int y4 = currMB->block_y + by;
+            int x4 = currMB->block_x + bx;
+
+            short ref0 = mv_info[y4][x4].ref_idx[0];
+            short ref1 = mv_info[y4][x4].ref_idx[1];
+
+            if (ref0 >= 0)
+                mv_info[y4][x4].ref_pic[LIST_0] = list0[ref0];
+            else
+                mv_info[y4][x4].ref_pic[LIST_0] = NULL;
+
+            if (ref1 >= 0)
+                mv_info[y4][x4].ref_pic[LIST_1] = list1[ref1];
+            else
+                mv_info[y4][x4].ref_pic[LIST_1] = NULL;
+        }
+    }
 }
 
 // Cleanup injection context

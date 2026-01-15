@@ -673,6 +673,213 @@ def identity_processor(tensors: MBDataTensors) -> MBDataTensors:
     return tensors
 
 
+# ==================== Residual Processors ====================
+
+def zero_residuals(tensors: MBDataTensors) -> MBDataTensors:
+    """Zero all residual coefficients (luma and chroma).
+
+    This removes all residual detail, leaving only prediction.
+    The result will look blocky/blurry as fine detail is lost.
+    """
+    import torch
+
+    return MBDataTensors(
+        header=tensors.header,
+        mb_type=tensors.mb_type,
+        cbp=tensors.cbp,
+        qp=tensors.qp,
+        is_intra=tensors.is_intra,
+        b8mode=tensors.b8mode,
+        b8pdir=tensors.b8pdir,
+        i16mode=tensors.i16mode,
+        c_ipred_mode=tensors.c_ipred_mode,
+        transform_8x8=tensors.transform_8x8,
+        mv_list0=tensors.mv_list0,
+        mv_list1=tensors.mv_list1,
+        ref_idx_list0=tensors.ref_idx_list0,
+        ref_idx_list1=tensors.ref_idx_list1,
+        ipredmode=tensors.ipredmode,
+        luma_cof=torch.zeros_like(tensors.luma_cof),
+        chroma_cof=torch.zeros_like(tensors.chroma_cof),
+    )
+
+
+def zero_luma_residuals(tensors: MBDataTensors) -> MBDataTensors:
+    """Zero only luma residuals, keeping chroma intact.
+
+    This removes brightness detail while preserving color information.
+    """
+    import torch
+
+    return MBDataTensors(
+        header=tensors.header,
+        mb_type=tensors.mb_type,
+        cbp=tensors.cbp,
+        qp=tensors.qp,
+        is_intra=tensors.is_intra,
+        b8mode=tensors.b8mode,
+        b8pdir=tensors.b8pdir,
+        i16mode=tensors.i16mode,
+        c_ipred_mode=tensors.c_ipred_mode,
+        transform_8x8=tensors.transform_8x8,
+        mv_list0=tensors.mv_list0,
+        mv_list1=tensors.mv_list1,
+        ref_idx_list0=tensors.ref_idx_list0,
+        ref_idx_list1=tensors.ref_idx_list1,
+        ipredmode=tensors.ipredmode,
+        luma_cof=torch.zeros_like(tensors.luma_cof),
+        chroma_cof=tensors.chroma_cof,
+    )
+
+
+def zero_chroma_residuals(tensors: MBDataTensors) -> MBDataTensors:
+    """Zero only chroma residuals, keeping luma intact.
+
+    This removes color detail while preserving brightness.
+    Colors will be flat/posterized based on prediction.
+    """
+    import torch
+
+    return MBDataTensors(
+        header=tensors.header,
+        mb_type=tensors.mb_type,
+        cbp=tensors.cbp,
+        qp=tensors.qp,
+        is_intra=tensors.is_intra,
+        b8mode=tensors.b8mode,
+        b8pdir=tensors.b8pdir,
+        i16mode=tensors.i16mode,
+        c_ipred_mode=tensors.c_ipred_mode,
+        transform_8x8=tensors.transform_8x8,
+        mv_list0=tensors.mv_list0,
+        mv_list1=tensors.mv_list1,
+        ref_idx_list0=tensors.ref_idx_list0,
+        ref_idx_list1=tensors.ref_idx_list1,
+        ipredmode=tensors.ipredmode,
+        luma_cof=tensors.luma_cof,
+        chroma_cof=torch.zeros_like(tensors.chroma_cof),
+    )
+
+
+def scale_residuals(scale: float) -> Callable[[MBDataTensors], MBDataTensors]:
+    """Create a processor that scales residual coefficients.
+
+    Args:
+        scale: Factor to multiply residuals by.
+               < 1.0: Reduces detail (smoother, blurrier)
+               > 1.0: Amplifies detail (sharper, potentially noisy/artifacts)
+               Negative: Inverts residuals (trippy effect!)
+    """
+    def processor(tensors: MBDataTensors) -> MBDataTensors:
+        import torch
+
+        scaled_luma = (tensors.luma_cof.float() * scale).to(tensors.luma_cof.dtype)
+        scaled_chroma = (tensors.chroma_cof.float() * scale).to(tensors.chroma_cof.dtype)
+
+        return MBDataTensors(
+            header=tensors.header,
+            mb_type=tensors.mb_type,
+            cbp=tensors.cbp,
+            qp=tensors.qp,
+            is_intra=tensors.is_intra,
+            b8mode=tensors.b8mode,
+            b8pdir=tensors.b8pdir,
+            i16mode=tensors.i16mode,
+            c_ipred_mode=tensors.c_ipred_mode,
+            transform_8x8=tensors.transform_8x8,
+            mv_list0=tensors.mv_list0,
+            mv_list1=tensors.mv_list1,
+            ref_idx_list0=tensors.ref_idx_list0,
+            ref_idx_list1=tensors.ref_idx_list1,
+            ipredmode=tensors.ipredmode,
+            luma_cof=scaled_luma,
+            chroma_cof=scaled_chroma,
+        )
+    return processor
+
+
+def quantize_residuals(levels: int = 8) -> Callable[[MBDataTensors], MBDataTensors]:
+    """Create a processor that quantizes residuals to fewer discrete levels.
+
+    This creates a posterization/banding effect by reducing precision.
+
+    Args:
+        levels: Number of quantization levels. Lower = more extreme effect.
+                8 = subtle banding, 2 = very harsh/artistic
+    """
+    def processor(tensors: MBDataTensors) -> MBDataTensors:
+        import torch
+
+        def quantize(tensor, num_levels):
+            t_float = tensor.float()
+            t_min, t_max = t_float.min(), t_float.max()
+            if t_max == t_min:
+                return tensor
+            normalized = (t_float - t_min) / (t_max - t_min)
+            quantized = torch.round(normalized * (num_levels - 1)) / (num_levels - 1)
+            return ((quantized * (t_max - t_min)) + t_min).to(tensor.dtype)
+
+        return MBDataTensors(
+            header=tensors.header,
+            mb_type=tensors.mb_type,
+            cbp=tensors.cbp,
+            qp=tensors.qp,
+            is_intra=tensors.is_intra,
+            b8mode=tensors.b8mode,
+            b8pdir=tensors.b8pdir,
+            i16mode=tensors.i16mode,
+            c_ipred_mode=tensors.c_ipred_mode,
+            transform_8x8=tensors.transform_8x8,
+            mv_list0=tensors.mv_list0,
+            mv_list1=tensors.mv_list1,
+            ref_idx_list0=tensors.ref_idx_list0,
+            ref_idx_list1=tensors.ref_idx_list1,
+            ipredmode=tensors.ipredmode,
+            luma_cof=quantize(tensors.luma_cof, levels),
+            chroma_cof=quantize(tensors.chroma_cof, levels),
+        )
+    return processor
+
+
+def add_residual_noise(stddev: float = 10.0) -> Callable[[MBDataTensors], MBDataTensors]:
+    """Create a processor that adds Gaussian noise to residuals.
+
+    This creates a grainy/noisy film effect.
+
+    Args:
+        stddev: Standard deviation of the noise. Higher = more noisy.
+    """
+    def processor(tensors: MBDataTensors) -> MBDataTensors:
+        import torch
+
+        luma_noise = torch.randn_like(tensors.luma_cof.float()) * stddev
+        chroma_noise = torch.randn_like(tensors.chroma_cof.float()) * stddev
+
+        noisy_luma = (tensors.luma_cof.float() + luma_noise).to(tensors.luma_cof.dtype)
+        noisy_chroma = (tensors.chroma_cof.float() + chroma_noise).to(tensors.chroma_cof.dtype)
+
+        return MBDataTensors(
+            header=tensors.header,
+            mb_type=tensors.mb_type,
+            cbp=tensors.cbp,
+            qp=tensors.qp,
+            is_intra=tensors.is_intra,
+            b8mode=tensors.b8mode,
+            b8pdir=tensors.b8pdir,
+            i16mode=tensors.i16mode,
+            c_ipred_mode=tensors.c_ipred_mode,
+            transform_8x8=tensors.transform_8x8,
+            mv_list0=tensors.mv_list0,
+            mv_list1=tensors.mv_list1,
+            ref_idx_list0=tensors.ref_idx_list0,
+            ref_idx_list1=tensors.ref_idx_list1,
+            ipredmode=tensors.ipredmode,
+            luma_cof=noisy_luma,
+            chroma_cof=noisy_chroma,
+        )
+    return processor
+
+
 # ==================== CLI Interface ====================
 
 def main():
@@ -704,9 +911,14 @@ def main():
     process_parser = subparsers.add_parser('process', help='Full pipeline: extract, process, inject, encode')
     process_parser.add_argument('input', help='Input H.264 bitstream')
     process_parser.add_argument('output', help='Output MP4 file')
-    process_parser.add_argument('--processor', choices=['identity', 'zero_mvs', 'scale_mvs'],
-                               default='identity', help='Processing to apply')
-    process_parser.add_argument('--scale', type=float, default=0.5, help='Scale factor for scale_mvs')
+    process_parser.add_argument('--processor', choices=[
+        'identity', 'zero_mvs', 'scale_mvs',
+        'zero_residuals', 'zero_luma', 'zero_chroma',
+        'scale_residuals', 'quantize_residuals', 'noise_residuals'
+    ], default='identity', help='Processing to apply')
+    process_parser.add_argument('--scale', type=float, default=0.5, help='Scale factor for scale_mvs or scale_residuals')
+    process_parser.add_argument('--levels', type=int, default=8, help='Quantization levels for quantize_residuals')
+    process_parser.add_argument('--noise-stddev', type=float, default=10.0, help='Noise stddev for noise_residuals')
     process_parser.add_argument('--crf', type=int, default=18, help='x264 CRF value')
     process_parser.add_argument('--keep', action='store_true', help='Keep intermediate files')
     process_parser.add_argument('--intermediate-dir', help='Directory for intermediate files')
@@ -760,6 +972,18 @@ def main():
             processor = zero_all_motion_vectors
         elif args.processor == 'scale_mvs':
             processor = scale_motion_vectors(args.scale)
+        elif args.processor == 'zero_residuals':
+            processor = zero_residuals
+        elif args.processor == 'zero_luma':
+            processor = zero_luma_residuals
+        elif args.processor == 'zero_chroma':
+            processor = zero_chroma_residuals
+        elif args.processor == 'scale_residuals':
+            processor = scale_residuals(args.scale)
+        elif args.processor == 'quantize_residuals':
+            processor = quantize_residuals(args.levels)
+        elif args.processor == 'noise_residuals':
+            processor = add_residual_noise(args.noise_stddev)
 
         pipeline.process_video(
             input_h264=args.input,
