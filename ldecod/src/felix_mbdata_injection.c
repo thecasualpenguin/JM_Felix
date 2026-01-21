@@ -7,6 +7,24 @@
 
 #include "felix_mbdata.h"
 
+
+// hacking temp stuff
+static FILE *mb_log_fp = NULL;
+
+static inline void open_mb_log_once(void)
+{
+    if (!mb_log_fp)
+    {
+        mb_log_fp = fopen("mb_intra_debug.log", "a");  // append mode
+        if (!mb_log_fp)
+        {
+            perror("Failed to open mb_intra_debug.log");
+        }
+    }
+}
+
+
+
 // Simple decode-order frame counter (matches extraction)
 static int injection_frame_counter = 0;  // Monotonically increasing frame index
 static int injection_last_poc = -99999;  // Last seen POC to detect frame changes
@@ -249,6 +267,38 @@ void inject_mbdata(Macroblock *currMB)
     inject_block_motion(currMB, mb_data);
     inject_intra_modes(currMB, mb_data);
     inject_coefficients(currMB, mb_data);
+  
+    /* --------------------------------------------------
+     * Force CBP for non-intra macroblocks
+     * -------------------------------------------------- */
+    
+    open_mb_log_once();
+
+    if (mb_log_fp)
+    {
+        fprintf(
+            mb_log_fp,
+            "[MB addr=%6d pix=(%4d,%4d) blk=(%4d,%4d)] "
+            "mb_type=%d  JM_is_intra=%d  meta_is_intra=%d  cbp=0x%02X  tr8x8=%d\n",
+            currMB->mbAddrX,
+            currMB->pix_x, currMB->pix_y,
+            currMB->block_x, currMB->block_y,
+            currMB->mb_type,
+            currMB->is_intra_block ? 1 : 0,
+            mb_data->metadata.is_intra_block,
+            currMB->cbp,
+            currMB->luma_transform_size_8x8_flag ? 1 : 0
+        );
+
+        fflush(mb_log_fp);  // ensure data is written immediately
+    }
+
+  
+    if (mb_data->metadata.is_intra_block == 0)
+    {
+      currMB->cbp = mb_data->metadata.cbp;
+      // instead of inject_metadata, we just make sure all luma and chroma are read from injection, instead of copied. This check is performed in block.c.
+    }
 
     // Update ref_pic pointers to match injected ref_idx values
     // (read_motion_info_from_NAL sets ref_pic based on original ref_idx,

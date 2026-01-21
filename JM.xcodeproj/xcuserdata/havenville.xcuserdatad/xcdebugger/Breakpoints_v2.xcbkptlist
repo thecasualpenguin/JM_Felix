@@ -324,7 +324,7 @@
          BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
          <BreakpointContent
             uuid = "9EC016B9-DC5A-457B-8B49-ECC8C22AA05A"
-            shouldBeEnabled = "Yes"
+            shouldBeEnabled = "No"
             ignoreCount = "0"
             continueAfterRunningActions = "No"
             filePath = "ldecod/src/image.c"
@@ -365,6 +365,38 @@
             startingLineNumber = "1255"
             endingLineNumber = "1255"
             landmarkName = "DecodeOneFrame(ppDecPicList)"
+            landmarkType = "9">
+         </BreakpointContent>
+      </BreakpointProxy>
+      <BreakpointProxy
+         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
+         <BreakpointContent
+            uuid = "6BCADA89-A749-4D67-901C-9B36B4850DCE"
+            shouldBeEnabled = "Yes"
+            ignoreCount = "0"
+            continueAfterRunningActions = "No"
+            filePath = "ldecod/src/image.c"
+            startingColumnNumber = "9223372036854775807"
+            endingColumnNumber = "9223372036854775807"
+            startingLineNumber = "2512"
+            endingLineNumber = "2512"
+            landmarkName = "decode_one_slice(currSlice)"
+            landmarkType = "9">
+         </BreakpointContent>
+      </BreakpointProxy>
+      <BreakpointProxy
+         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
+         <BreakpointContent
+            uuid = "0027778B-EC7F-4C2D-91CC-39135A40FE91"
+            shouldBeEnabled = "Yes"
+            ignoreCount = "0"
+            continueAfterRunningActions = "No"
+            filePath = "ldecod/src/block.c"
+            startingColumnNumber = "9223372036854775807"
+            endingColumnNumber = "9223372036854775807"
+            startingLineNumber = "704"
+            endingLineNumber = "704"
+            landmarkName = "iMBtrans8x8(currMB, pl)"
             landmarkType = "9">
          </BreakpointContent>
       </BreakpointProxy>
