@@ -8,7 +8,7 @@
 #include "felix_mbdata.h"
 
 
-// hacking temp stuff
+// hacking temp log stuff
 static FILE *mb_log_fp = NULL;
 
 static inline void open_mb_log_once(void)
@@ -22,7 +22,6 @@ static inline void open_mb_log_once(void)
         }
     }
 }
-
 
 
 // Simple decode-order frame counter (matches extraction)
@@ -215,6 +214,8 @@ static void inject_coefficients(Macroblock *currMB, MacroblockData *mb_data)
 // Main injection function - called after read_one_macroblock(), before decode_one_macroblock()
 void inject_mbdata(Macroblock *currMB)
 {
+    open_mb_log_once();
+  
     if (!mbdata_i_ctx || !mbdata_i_ctx->mb_data_field) {
         printf("ERROR: inject_mbdata called but no data loaded\n");
         return;
@@ -241,6 +242,19 @@ void inject_mbdata(Macroblock *currMB)
         printf("Inject frame %d: POC=%d, idr=%d\n", f, current_poc, is_idr);
         injection_last_logged_frame = f;
     }
+  
+  
+  // Skip injection for I-frames (all intra, no inter blocks to modify)
+    if (currSlice->slice_type == I_SLICE || currSlice->slice_type == SI_SLICE) {
+        printf("INFO: Frame %d is an I-Frame. Skipping to preserve IDRs for better quality.\n",
+               f);
+      
+        fprintf(mb_log_fp,
+                "INFO: Frame %d is an I-Frame. Skipping to preserve IDRs for better quality.\n",
+                f);
+        return;
+    }
+
 
     // Get MB coordinates
     int mb_x = currMB->mb.x;
@@ -271,38 +285,69 @@ void inject_mbdata(Macroblock *currMB)
     /* --------------------------------------------------
      * Force CBP for non-intra macroblocks
      * -------------------------------------------------- */
-    
-    open_mb_log_once();
 
-    if (mb_log_fp)
-    {
-        fprintf(
-            mb_log_fp,
-            "[MB addr=%6d pix=(%4d,%4d) blk=(%4d,%4d)] "
-            "mb_type=%d  JM_is_intra=%d  meta_is_intra=%d  cbp=0x%02X  tr8x8=%d\n",
-            currMB->mbAddrX,
-            currMB->pix_x, currMB->pix_y,
-            currMB->block_x, currMB->block_y,
-            currMB->mb_type,
-            currMB->is_intra_block ? 1 : 0,
-            mb_data->metadata.is_intra_block,
-            currMB->cbp,
-            currMB->luma_transform_size_8x8_flag ? 1 : 0
-        );
-
-        fflush(mb_log_fp);  // ensure data is written immediately
-    }
+//    if (mb_log_fp)
+//    {
+//        fprintf(
+//            mb_log_fp,
+//            "[MB addr=%6d pix=(%4d,%4d) blk=(%4d,%4d)] "
+//            "mb_type=%d  JM_is_intra=%d  meta_is_intra=%d  cbp=0x%02X  tr8x8=%d\n",
+//            currMB->mbAddrX,
+//            currMB->pix_x, currMB->pix_y,
+//            currMB->block_x, currMB->block_y,
+//            currMB->mb_type,
+//            currMB->is_intra_block ? 1 : 0,
+//            mb_data->metadata.is_intra_block,
+//            currMB->cbp,
+//            currMB->luma_transform_size_8x8_flag ? 1 : 0
+//        );
+//
+//        fflush(mb_log_fp);  // ensure data is written immediately
+//    }
+  
+//    if (mb_data->metadata.is_intra_block == 0)
+//    {
+//        fprintf(mb_log_fp,
+//            "PRE-CBP inter: addr=%d mb_type=%d is_intra=%d c_ipred_mode=%d cbp=0x%02X\n",
+//            currMB->mbAddrX,
+//            currMB->mb_type,
+//            currMB->is_intra_block ? 1 : 0,
+//            (int)currMB->c_ipred_mode,
+//            (unsigned)currMB->cbp
+//        );
+//        fflush(mb_log_fp);  // ensure data is written immediately
+//    }
 
   
-    if (mb_data->metadata.is_intra_block == 0)
-    {
-      currMB->cbp = mb_data->metadata.cbp;
-      // instead of inject_metadata, we just make sure all luma and chroma are read from injection, instead of copied. This check is performed in block.c.
+    // ================================================================
+    // FORCE ALL BLOCKS TO USE INJECTED DATA
+    // ================================================================
+
+    if (currMB->is_intra_block == FALSE) {
+        // INTER BLOCKS: Force full residual processing
+
+        // 1. Convert skip blocks to P16x16 to force residual processing
+        //    P_Skip (mb_type=0) calls mb_pred_skip() which bypasses iTransform()
+        //    B_Skip/Direct (mb_type=0) derives MVs from colocated refs
+        if (currMB->mb_type == 0) {  // PSKIP=0, BSKIP_DIRECT=0
+            currMB->mb_type = 1;     // P16x16=1 - forces MC + residual path
+        }
+
+        // 2. Force CBP = 0x3F to ensure ALL residual blocks are processed. But 0x0F only forces Luma bits. Chroma can be tricky.
+        //    Bits 0-3: luma 8x8 quadrants, Bits 4-5: chroma Cb/Cr
+//        currMB->cbp = 0x0F;
+    } else {
+        // INTRA BLOCKS: Use extracted CBP from metadata
+        // For intra blocks (especially I16MB), CBP has different semantics
+        // related to DC coefficient Hadamard transform. Use the original value.
+        currMB->cbp = mb_data->metadata.cbp;
     }
 
     // Update ref_pic pointers to match injected ref_idx values
     // (read_motion_info_from_NAL sets ref_pic based on original ref_idx,
     //  so we must update them after injection changes ref_idx)
+      // don't worry about ref pic, yet
+  /*
     int list_offset = currMB->list_offset;
     StorablePicture **list0 = currSlice->listX[LIST_0 + list_offset];
     StorablePicture **list1 = currSlice->listX[LIST_1 + list_offset];
@@ -327,6 +372,7 @@ void inject_mbdata(Macroblock *currMB)
                 mv_info[y4][x4].ref_pic[LIST_1] = NULL;
         }
     }
+     */
 }
 
 // Cleanup injection context
